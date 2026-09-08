@@ -1,0 +1,83 @@
+name: Build TRIKA.TRAD APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Android build tools
+        run: |
+          sudo apt update
+          sudo apt install -y zip unzip git autoconf automake libtool \
+            pkg-config zlib1g-dev libncurses-dev libffi-dev libssl-dev \
+            cmake openjdk-17-jdk
+
+      - name: Install Buildozer
+        run: |
+          python -m pip install --upgrade pip
+          pip install buildozer==1.5.0 Cython==0.29.36
+
+      - name: Create main.py from TRIKA.TRAD.py
+        run: |
+          cp "TRIKA.TRAD.py" "main.py"
+
+      - name: Create buildozer.spec
+        run: |
+          cat > buildozer.spec <<'EOF'
+          [app]
+
+          title = TRIKA.TRAD
+          package.name = trika
+          package.domain = tech.trika
+
+          source.dir = .
+          source.include_exts = py,png,jpg,jpeg,txt,db,json
+
+          version = 1.0
+
+          requirements = python3,kivy,pillow,requests,deep-translator
+
+          orientation = portrait
+          fullscreen = 0
+
+          icon.filename = ICONE.png
+          presplash.filename = logo.png
+
+          android.api = 34
+          android.minapi = 24
+          android.archs = arm64-v8a,armeabi-v7a
+
+          android.permissions = INTERNET
+          EOF
+
+      - name: Build APK
+        env:
+          BUILDOZER_ALLOW_ROOT: "1"
+        run: |
+          buildozer android debug
+
+      - name: Upload APK
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: TRIKA.TRAD_APK
+          path: bin/*.apk
